@@ -1,0 +1,10 @@
+{
+    "salesforce": {
+        "url": "https://api.salesforce.com/v1/leads",
+        "auth": "oauth_token"
+    },
+    "hubspot": {
+        "url": "https://api.hubspot.com/crm/v3/objects/contacts",
+        "auth": "api_key"
+    }
+}

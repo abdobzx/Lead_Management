@@ -1,0 +1,5 @@
+Lead Scoring Criteria:
+- Income: >50k = 20 points, >100k = 40 points
+- Credit Score: >700 = 30 points, >800 = 50 points
+- Timeline: Ready to buy = 50 points, Within 6 months = 30 points
+- Total Score: >100 = Qualified

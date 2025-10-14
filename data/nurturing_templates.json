@@ -1,0 +1,13 @@
+[
+    {
+        "template_id": 1,
+        "type": "email",
+        "subject": "Market Insights: Current Trends in Real Estate",
+        "body": "Dear {name}, Here are the latest market insights..."
+    },
+    {
+        "template_id": 2,
+        "type": "sms",
+        "body": "Hi {name}, Check out this financial tip: {tip}"
+    }
+]

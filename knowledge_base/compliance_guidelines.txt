@@ -1,0 +1,5 @@
+Compliance Guidelines for Outreach:
+- Adhere to GDPR: Obtain consent before contact.
+- Do not share personal data without permission.
+- Use secure channels for financial data.
+- Log all interactions for auditing.

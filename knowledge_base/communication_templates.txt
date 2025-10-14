@@ -1,0 +1,4 @@
+Successful Communication Templates:
+1. Initial Contact: "Hello {name}, Thank you for your interest in our financial services."
+2. Follow-up: "Hi {name}, Following up on our previous conversation about {topic}."
+3. Nurturing: "Dear {name}, Here's some valuable insight: {insight}."
