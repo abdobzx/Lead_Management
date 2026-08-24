@@ -154,20 +154,24 @@ class TestAnalyticsAPI:
         assert len(data) > 0
 
     def test_get_dashboard_data(self, client):
-        """Test getting dashboard overview data."""
+        """Test getting dashboard overview data - computed from real
+        in-memory leads_db and real pipeline stats, not the fake
+        recent_activity/performance_trends this used to assert on."""
         response = client.get("/api/v1/analytics/dashboard")
         assert response.status_code == 200
         data = response.json()
         assert "summary" in data
-        assert "recent_activity" in data
-        assert "performance_trends" in data
+        assert "total_leads" in data["summary"]
+        assert "agent_pipeline_stats" in data
 
 
 class TestLeadProcessing:
-    """Test lead processing with AI agents."""
+    """Test lead processing with AI agents - runs the real 6-agent
+    pipeline against the live API, so this makes real API calls and
+    takes roughly a minute."""
 
     def test_process_lead(self, client):
-        """Test processing a lead through AI agents."""
+        """Test processing a lead through the real AI agent pipeline."""
         # Create a lead first
         lead_data = {
             "name": "Process Test User",
@@ -177,11 +181,16 @@ class TestLeadProcessing:
         create_response = client.post("/api/v1/leads/", json=lead_data)
         lead_id = create_response.json()["id"]
 
-        # Process it (this will be mocked in actual implementation)
         response = client.post(f"/api/v1/leads/{lead_id}/process")
         assert response.status_code == 200
         data = response.json()
-        assert "lead_id" in data
-        assert "status" in data
-        assert "score" in data
-        assert "recommendation" in data
+        assert data["lead_id"] == lead_id
+        assert data["succeeded"] is True
+        assert data["status"] in {"new", "qualified", "nurturing", "appointment_set", "converted", "lost"}
+        assert len(data["stages"]) == 6
+        assert all(stage["error"] is None for stage in data["stages"])
+
+        # The lead's score field should be populated from the pipeline's
+        # qualification stage.
+        lead_response = client.get(f"/api/v1/leads/{lead_id}")
+        assert lead_response.json()["score"] is not None

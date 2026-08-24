@@ -1,5 +1,5 @@
 from agno.agent import Agent
-from agno.models.xai import xAI
+from agno.models.anthropic import Claude
 from agno.tools import tool
 import os
 
@@ -46,7 +46,7 @@ def data_enrichment(lead_data: dict) -> dict:
 
 lead_generator = Agent(
     name="Lead Generator",
-    model=xAI(id="grok-4"),
+    model=Claude(id="claude-haiku-4-5-20251001"),
     description="An AI agent focused on capturing and enriching leads from multiple channels to build a robust pipeline for financial sales.",
     instructions="""
 Agent Responsibilities:

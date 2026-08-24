@@ -3,37 +3,14 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Python 3.13](https://img.shields.io/badge/python-3.13-blue.svg)](https://www.python.org/)
 [![FastAPI](https://img.shields.io/badge/FastAPI-0.100+-green.svg)](https://fastapi.tiangolo.com/)
-[![PostgreSQL](https://img.shields.io/badge/PostgreSQL-15+-blue.svg)](https://www.postgresql.org/)
 
-> **Portfolio Project** - A sophisticated AI-powered lead management system demonstrating expertise in microservices architecture, machine learning integration, and enterprise-grade software development.
+A real, working 6-agent lead processing pipeline built on [Agno](https://github.com/agno-agi/agno) + Claude, with FastAPI endpoints and analytics computed from actual runs.
 
-## 👨‍💻 About the Author
+**Abderrahman** - [GitHub](https://github.com/abdobzx)
 
-**Abderrahman** - Full-Stack AI Engineer & Software Architect
+## What's actually here
 
-- 🔗 [LinkedIn](https://linkedin.com/in/abderrahman)
-- 💻 [GitHub](https://github.com/abdobzx)
-- 📧 [Email](mailto:abderrahman@example.com)
-- 🌐 [Portfolio](https://abderrahman.dev)
-
-*Passionate about building scalable AI systems that solve real-world business problems. Expertise in Python, distributed systems, and MLOps.*
-
-## 🏆 Project Highlights
-
-- **🤖 Multi-Agent AI Architecture**: 6 specialized AI agents working in orchestration
-- **🏗️ Microservices Design**: Modular, scalable, and maintainable codebase
-- **🔒 Enterprise Security**: GDPR compliant with advanced security features
-- **📊 Real-Time Analytics**: Comprehensive reporting and KPI tracking
-- **🚀 Production Ready**: Docker, CI/CD, monitoring, and deployment automation
-- **🎯 90%+ Test Coverage**: Comprehensive testing suite with performance benchmarks
-
-## Overview
-
-The Lead Management Module is a comprehensive AI-powered system designed for Finance OS that automates and optimizes the entire lead generation and conversion pipeline. This module consists of 6 specialized AI agents working in coordination to capture, qualify, nurture, and convert leads into customers.
-
-## 🏗️ Architecture
-
-The system follows a sophisticated **sequential agent handoff pattern** where each AI agent specializes in a specific stage of the lead lifecycle:
+Six specialized Agno agents process a lead sequentially - Lead Generator, Qualification Agent, CRM Manager, Nurturing Specialist, Appointment Setter, and Reporting & Analytics Agent:
 
 ```mermaid
 graph TD
@@ -42,358 +19,96 @@ graph TD
     C --> D[Nurturing Specialist]
     D --> E[Appointment Setter]
     E --> F[Reporting & Analytics Agent]
-    
-    C --> D
-    F --> A
 ```
 
-### Core Components
+Each hop uses a reason-first, faithful-extraction handoff (see [`agents/orchestrator.py`](agents/orchestrator.py)) instead of passing one agent's raw text straight into the next: the producing agent's full response is captured, then a lightweight second pass restates the specific facts (scores, thresholds, statuses) the next agent needs, explicitly instructed not to invent caveats or drop precision. This is the same handoff pattern validated in [reasonrelay](https://github.com/abdobzx/reasonrelay), applied here to a real business pipeline instead of a synthetic benchmark.
 
-- **🤖 AI Agent Layer**: Powered by Agno framework with xAI Grok-4 LLM
-- **🔧 API Layer**: FastAPI-based REST API with automatic OpenAPI documentation
-- **💾 Data Layer**: PostgreSQL with SQLAlchemy ORM and Alembic migrations
-- **⚡ Cache Layer**: Redis for high-performance data caching
-- **🔐 Security Layer**: JWT authentication with role-based access control
-- **📊 Monitoring Layer**: Prometheus metrics with Grafana dashboards
+Real per-stage token/latency metrics are recorded from Agno's own `RunOutput.metrics` and exposed via `/analytics/agents` - a fresh instance reports `runs: 0` and `null` averages until a lead has actually been processed, not a pre-filled fake number.
 
-## Agents
+### Agents
 
-### 1. 🤖 Lead Generator Agent
+1. **Lead Generator** - captures and enriches a lead's profile
+2. **Qualification Agent** - scores financial capacity and readiness
+3. **CRM Manager** - manages the contact record, triggers engagement sequences
+4. **Nurturing Specialist** - builds and tracks personalized outreach
+5. **Appointment Setter** - monitors readiness signals, schedules consultations
+6. **Reporting & Analytics Agent** - summarizes the outcome and next steps
 
-- **Purpose**: Captures and enriches leads from multiple channels
-- **Key Functions**: Web search, data enrichment, lead profiling
-- **Output**: Enriched lead profiles ready for qualification
+Each agent's tools (`web_search`, `data_enrichment`, `crm_sync`, etc.) are simulated - they return realistic-looking placeholder data rather than calling real external APIs, since there's no live CRM/calendar/credit-bureau integration behind this. That's clearly marked in each tool's code (`# In production: ...`) and is an honest limitation, not something papered over.
 
-### 2. 🎯 Qualification Agent
+## Technology Stack
 
-- **Purpose**: Scores and qualifies leads based on criteria
-- **Key Functions**: Data analysis, scoring algorithms, prioritization
-- **Output**: Qualified leads with detailed scoring and recommendations
+- **AI Framework**: [Agno 2.0.3](https://github.com/agno-agi/agno) - agent orchestration
+- **LLM**: Claude Haiku (`claude-haiku-4-5-20251001`) via `agno.models.anthropic`
+- **Backend**: FastAPI, async
+- **Data layer**: in-memory dict for this demo (`leads_db` in `app/api/v1/endpoints/leads.py`) - not yet backed by the Postgres/SQLAlchemy/Alembic setup that exists in `app/core/database.py` and `requirements.txt`; wiring that up is a real next step, not done yet
+- **Testing**: pytest (`tests/`)
 
-### 3. 📋 CRM Manager Agent
-
-- **Purpose**: Manages contacts and automates engagement workflows
-- **Key Functions**: Database operations, automation sequences, data sync
-- **Output**: Organized contact database with automated workflows
-
-### 4. 💌 Nurturing Specialist Agent
-
-- **Purpose**: Builds personalized communication campaigns
-- **Key Functions**: Content generation, campaign management, A/B testing
-- **Output**: Optimized nurture sequences with personalized messaging
-
-### 5. 📅 Appointment Setter Agent
-
-- **Purpose**: Monitors readiness and schedules consultations
-- **Key Functions**: Behavioral analysis, calendar coordination, booking management
-- **Output**: Scheduled appointments with optimized timing
-
-### 6. 📈 Reporting & Analytics Agent
-
-- **Purpose**: Tracks KPIs and generates performance insights
-- **Key Functions**: Data visualization, trend analysis, predictive modeling
-- **Output**: Comprehensive reports and optimization recommendations
-
-## 🛠️ Technology Stack
-
-### Core Technologies
-
-- **AI Framework**: [Agno v2.0.3](https://github.com/agno-ai/agno) - Multi-agent orchestration
-- **LLM Model**: [xAI Grok-4](https://x.ai/) - Advanced reasoning capabilities
-- **Backend**: [FastAPI](https://fastapi.tiangolo.com/) - High-performance async API
-- **Database**: [PostgreSQL](https://www.postgresql.org/) - Robust relational data storage
-- **Cache**: [Redis](https://redis.io/) - High-performance caching layer
-- **ORM**: [SQLAlchemy](https://www.sqlalchemy.org/) - Python SQL toolkit
-
-### Development & Quality
-
-- **Language**: Python 3.13 with comprehensive type hints
-- **Testing**: pytest with 90%+ coverage, including performance benchmarks
-- **Code Quality**: Black, isort, flake8, mypy for consistent, type-safe code
-- **Documentation**: MkDocs with Material theme, OpenAPI/Swagger specs
-
-### DevOps & Deployment
-
-- **Containerization**: Docker & Docker Compose for consistent environments
-- **CI/CD**: GitHub Actions with automated testing and deployment
-- **Monitoring**: Prometheus metrics, Grafana dashboards, structured logging
-- **Security**: JWT authentication, rate limiting, input validation
-
-### Key Libraries
-
-- **Async Support**: aiofiles, httpx for concurrent operations
-- **Validation**: Pydantic v2 for robust data models
-- **Security**: cryptography, bcrypt, python-jose for encryption
-- **Analytics**: pandas, numpy for data processing
-- **Web**: uvicorn for ASGI server, email-validator for data integrity
-
-## Key Features
-
-- **Production-Ready**: Error handling, logging, and compliance features
-- **Scalable Architecture**: Modular design for easy extension
-- **Data-Driven**: Analytics and reporting throughout the pipeline
-- **Automated Workflows**: Reduced manual intervention by 70-80%
-- **Multi-Channel Integration**: Support for various data sources and CRMs
-- **Real-Time Processing**: Continuous monitoring and optimization
-
-## 🚀 Quick Start
-
-### Prerequisites
-
-- Python 3.13+
-- PostgreSQL 15+
-- Redis 7+
-- Docker & Docker Compose (optional)
-
-### Local Development Setup
-
-1. **Clone the repository**
-
-   ```bash
-   git clone https://github.com/abdobzx/Lead_Management.git
-   cd Lead_Management
-   ```
-
-2. **Create virtual environment**
-
-   ```bash
-   python -m venv venv
-   source venv/bin/activate  # On Windows: venv\Scripts\activate
-   ```
-
-3. **Install dependencies**
-
-   ```bash
-   pip install -r requirements.txt
-   ```
-
-4. **Setup environment variables**
-
-   ```bash
-   cp .env.example .env
-   # Edit .env with your API keys and database credentials
-   ```
-
-5. **Run database migrations**
-
-   ```bash
-   alembic upgrade head
-   ```
-
-6. **Start the application**
-
-   ```bash
-   # Development mode
-   uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
-
-   # Production mode
-   docker-compose up -d
-   ```
-
-7. **Access the application**
-   - API Documentation: [http://localhost:8000/docs](http://localhost:8000/docs)
-   - Web Dashboard: [http://localhost:8501](http://localhost:8501)
-   - Health Check: [http://localhost:8000/health](http://localhost:8000/health)
-
-### Docker Deployment
+## Quick Start
 
 ```bash
-# Build and run with Docker Compose
-docker-compose up --build
+git clone https://github.com/abdobzx/Lead_Management.git
+cd Lead_Management
 
-# Run tests in container
-docker-compose exec app pytest
+python3 -m venv .venv
+source .venv/bin/activate
+pip install agno==2.0.3 anthropic pandas python-dotenv fastapi "uvicorn[standard]" pydantic pydantic-settings structlog redis sqlalchemy
 
-# View logs
-docker-compose logs -f app
+cp .env.example .env
+# set ANTHROPIC_API_KEY in .env - this is the one actually required to run the agents
+
+uvicorn app.main:app --reload
 ```
 
-## 📖 API Usage
+Note on `requirements.txt`: it lists the full production dependency set (Postgres async driver, Redis, Docker/CI tooling, docs generator). `asyncpg` in particular doesn't currently build against newer Python versions (3.14+) - the install above is the minimal set needed to actually run the agent pipeline and API locally.
 
-### REST API Endpoints
-
-The system provides a comprehensive REST API for all lead management operations:
+### Try it
 
 ```bash
-# Get all leads
-GET /api/v1/leads
+# Create a lead
+curl -X POST http://localhost:8000/api/v1/leads/ \
+  -H "Content-Type: application/json" \
+  -d '{"name": "Jane Investor", "email": "jane@example.com", "source": "website", "budget": 500000, "timeline": "3 months"}'
 
-# Create new lead
-POST /api/v1/leads
-{
-  "name": "John Doe",
-  "email": "john@example.com",
-  "phone": "+1234567890",
-  "company": "Tech Corp",
-  "source": "website"
-}
+# Process it through the real 6-agent pipeline (takes ~60-90s, makes ~12-20 real API calls)
+curl -X POST http://localhost:8000/api/v1/leads/{lead_id}/process
 
-# Process lead through AI agents
-POST /api/v1/leads/{lead_id}/process
-
-# Get lead analytics
-GET /api/v1/analytics/leads
-
-# Export leads
-GET /api/v1/leads/export?format=csv
+# See real, measured per-agent stats
+curl http://localhost:8000/api/v1/analytics/agents
 ```
 
-### Python SDK Usage
+## Project structure
 
-```python
-from lead_management_sdk import LeadManagementClient
-
-# Initialize client
-client = LeadManagementClient(
-    api_key="your_api_key",
-    base_url="http://localhost:8000"
-)
-
-# Create and process a lead
-lead = client.create_lead({
-    "name": "Jane Smith",
-    "email": "jane@company.com",
-    "budget": 50000,
-    "timeline": "3 months"
-})
-
-# Process through AI pipeline
-result = client.process_lead(lead.id)
-print(f"Lead score: {result.score}")
-print(f"Recommended action: {result.action}")
+```text
+agents/
+  lead_generator.py, qualification_agent.py, crm_manager.py,
+  nurturing_specialist.py, appointment_setter.py, reporting_analytics_agent.py
+  orchestrator.py          # LeadPipeline: the actual sequential handoff logic
+app/
+  main.py                  # FastAPI app entry point
+  api/v1/endpoints/         # leads.py, analytics.py, health.py
+  core/                     # config, database, redis, pipeline_state (shared stats)
+  models/                   # Pydantic Lead models
+knowledge_base/             # real text files agents query via a knowledge_query tool
+tests/                      # pytest suite
 ```
 
-### Web Dashboard
+## Dashboard
 
-Access the interactive dashboard at `http://localhost:8501` for:
-- Real-time lead monitoring
-- Performance analytics
-- Agent activity logs
-- Campaign management
-- Automated reporting
-
-To run the dashboard locally:
+`dashboard/app.py` is a real, working Streamlit frontend (~390 lines) that calls the actual API endpoints above - lead list, creation form, and a "process lead" button hitting the real pipeline. Run it with:
 
 ```bash
 pip install streamlit plotly
-streamlit run dashboard/app.py
+streamlit run dashboard/app.py   # with the API running separately on :8000
 ```
 
-### Testing the API
+## What this doesn't claim
 
-Run the comprehensive API test suite:
+- Not GDPR/SOC 2 compliant, no audit trail infrastructure, no rate limiting/DDoS protection actually wired up - those were previously listed as features and weren't real.
+- No live external integrations (CRM, calendar, email sending, credit bureau) - all tool outputs are simulated, clearly marked in the code.
+- No persistent database yet - leads live in an in-memory dict, reset on restart.
+- A `/leads/export` endpoint and a separate installable Python SDK were referenced in an earlier version of this README but don't exist in the codebase - removed from the docs rather than left as unfulfilled promises.
 
-```bash
-python test_api_endpoints.py
-```
+## License
 
-This will test all endpoints and validate the system functionality.
-```
-
-### Web Dashboard
-
-Access the interactive dashboard at `http://localhost:8501` for:
-
-- Real-time lead monitoring
-- Performance analytics
-- Agent activity logs
-- Campaign management
-- Automated reporting
-
-## Performance Metrics
-
-- **Lead Generation**: 100+ leads/day target
-- **Qualification Accuracy**: 85%+ scoring precision
-- **Conversion Rate**: 25%+ improvement through optimization
-- **Automation Efficiency**: 70-80% reduction in manual tasks
-- **Response Time**: Real-time processing with <5 second latency
-
-## Compliance & Security
-
-- GDPR compliant data handling
-- SOC 2 compliant audit trails
-- Encrypted data storage and transmission
-- Role-based access controls
-- Regular security updates and monitoring
-
-## 📁 Project Structure
-
-```text
-lead-management/
-├── agents/                    # AI Agent implementations
-│   ├── lead_generator.py     # Lead capture and enrichment
-│   ├── qualification_agent.py # Lead scoring and prioritization
-│   ├── crm_manager.py        # Contact management and workflows
-│   ├── nurturing_specialist.py # Communication campaigns
-│   ├── appointment_setter.py # Scheduling and booking
-│   └── reporting_analytics_agent.py # KPIs and insights
-├── app/                      # FastAPI application
-│   ├── main.py              # Application entry point
-│   ├── api/                 # API route handlers
-│   ├── core/                # Core functionality
-│   ├── models/              # Pydantic models
-│   └── services/            # Business logic services
-├── data/                     # Sample data and configurations
-├── knowledge_base/           # Agent knowledge and templates
-├── scripts/                  # Deployment and utility scripts
-├── team/                     # Agent orchestration
-├── tests/                    # Comprehensive test suite
-├── docker/                   # Docker configurations
-├── docs/                     # Documentation
-├── requirements.txt          # Python dependencies
-├── docker-compose.yml        # Multi-service orchestration
-├── Dockerfile               # Container definition
-└── .github/workflows/       # CI/CD pipelines
-```
-
-## 🤝 Contributing
-
-We welcome contributions! This project is open-source and we encourage improvements from the community.
-
-### Development Workflow
-
-1. Fork the repository
-2. Create a feature branch: `git checkout -b feature/amazing-feature`
-3. Make your changes with proper tests
-4. Run the test suite: `pytest tests/ -v --cov`
-5. Format code: `black . && isort .`
-6. Commit changes: `git commit -m 'Add amazing feature'`
-7. Push to branch: `git push origin feature/amazing-feature`
-8. Open a Pull Request
-
-### Code Standards
-
-- **Python**: PEP 8 compliant with type hints
-- **Testing**: 90%+ coverage required
-- **Documentation**: All public APIs documented
-- **Security**: No hardcoded secrets, proper validation
-
-## 🛡️ Security
-
-This project implements enterprise-grade security measures:
-
-- JWT-based authentication with refresh tokens
-- Role-based access control (RBAC)
-- Rate limiting and DDoS protection
-- Input validation and sanitization
-- Encrypted data storage and transmission
-- Regular security audits and updates
-
-For security issues, please email [security@abderrahman.dev](mailto:security@abderrahman.dev)
-
-## 📄 License
-
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
-
-## 🙏 Acknowledgments
-
-- **xAI** for the powerful Grok LLM
-- **Agno** framework for multi-agent orchestration
-- **FastAPI** community for the excellent web framework
-- **Open source contributors** who make projects like this possible
-
----
-
-**Built with ❤️ by [Abderrahman](https://github.com/abdobzx)**
-
-*Showcase of modern AI engineering, microservices architecture, and production-ready software development.*
+MIT - see [LICENSE](LICENSE).

@@ -1,5 +1,5 @@
 from agno.agent import Agent
-from agno.models.xai import xAI
+from agno.models.anthropic import Claude
 from agno.tools import tool
 import os
 import pandas as pd
@@ -58,7 +58,7 @@ def financial_scoring(data: dict) -> float:
 
 qualification_agent = Agent(
     name="Qualification Agent",
-    model=xAI(id="grok-4"),
+    model=Claude(id="claude-haiku-4-5-20251001"),
     description="An AI agent focused on scoring and qualifying leads based on financial capacity and readiness for buying/selling.",
     instructions="""
 Agent Responsibilities:

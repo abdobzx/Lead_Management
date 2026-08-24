@@ -8,12 +8,43 @@ from typing import List, Optional
 import uuid
 
 from app.core.database import get_db
+from app.core.pipeline_state import get_pipeline
 
 router = APIRouter()
 
 
 # In-memory storage for demo (replace with database models later)
 leads_db = {}
+
+
+_SCORE_KEY_PRIORITY = ("financialcapacityscore", "capacityscore", "qualificationscore")
+
+
+def _normalize_key(key: str) -> str:
+    return "".join(ch for ch in key.lower() if ch.isalnum())
+
+
+def _extract_score(stages) -> Optional[int]:
+    """Pull the 0-100 lead-qualification score out of whichever stage
+    reported one. Matches key names loosely (case/spacing/underscore
+    insensitive) since the extraction step's key_values dict has no fixed
+    schema - the same fact can come back as "financial_capacity_score" one
+    run and "Financial Capacity Score" the next. Deliberately excludes
+    "credit_score" and similar - those are on a different scale (e.g.
+    300-850) and would silently corrupt this field if matched by a
+    generic "contains 'score'" check."""
+    key_values_by_stage = [stage.content.get("key_values", {}) for stage in stages]
+
+    for preferred_key in _SCORE_KEY_PRIORITY:
+        for key_values in key_values_by_stage:
+            for actual_key, value in key_values.items():
+                if _normalize_key(actual_key) != preferred_key:
+                    continue
+                try:
+                    return int(float(str(value).split("/")[0].strip()))
+                except (ValueError, IndexError):
+                    continue
+    return None
 
 
 @router.get("/")
@@ -98,22 +129,51 @@ async def process_lead(
     db: AsyncSession = Depends(get_db)
 ):
     """
-    Process a lead through the AI agent pipeline.
+    Process a lead through the real 6-agent pipeline (lead_generator ->
+    qualification_agent -> crm_manager -> nurturing_specialist ->
+    appointment_setter -> reporting_analytics_agent), each handoff using a
+    reason-first, faithful-extraction pass rather than raw passthrough.
     """
     if lead_id not in leads_db:
         raise HTTPException(status_code=404, detail="Lead not found")
 
-    # TODO: Integrate with actual agent processing
+    pipeline = get_pipeline()
+    if pipeline is None:
+        raise HTTPException(
+            status_code=503,
+            detail="ANTHROPIC_API_KEY is not configured - the agent pipeline cannot run.",
+        )
+
     lead = leads_db[lead_id]
     lead["status"] = "processing"
 
-    # Simulate processing
-    lead["score"] = 75  # Mock score
-    lead["status"] = "qualified"
+    result = pipeline.process_lead(lead)
+
+    lead["status"] = result.final_status
+    lead["agent_notes"] = {
+        stage.stage: {
+            "summary": stage.content.get("summary"),
+            "key_values": stage.content.get("key_values"),
+            "error": stage.error,
+        }
+        for stage in result.stages
+    }
+    score = _extract_score(result.stages)
+    if score is not None:
+        lead["score"] = score
 
     return {
         "lead_id": lead_id,
-        "status": "processed",
-        "score": lead["score"],
-        "recommendation": "high_priority"
+        "status": result.final_status,
+        "succeeded": result.succeeded,
+        "stages": [
+            {
+                "stage": s.stage,
+                "summary": s.content.get("summary"),
+                "status": s.content.get("status"),
+                "error": s.error,
+                "duration_seconds": s.duration_seconds,
+            }
+            for s in result.stages
+        ],
     }

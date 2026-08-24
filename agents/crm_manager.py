@@ -1,5 +1,5 @@
 from agno.agent import Agent
-from agno.models.xai import xAI
+from agno.models.anthropic import Claude
 from agno.tools import tool
 import os
 
@@ -57,7 +57,7 @@ def crm_sync(endpoint: str, data: dict) -> dict:
 
 crm_manager = Agent(
     name="CRM Manager",
-    model=xAI(id="grok-4"),
+    model=Claude(id="claude-haiku-4-5-20251001"),
     description="An AI agent focused on centralized contact management, engagement automation, and tracking interaction history.",
     instructions="""
 Agent Responsibilities:

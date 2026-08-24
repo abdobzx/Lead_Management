@@ -1,5 +1,5 @@
 from agno.agent import Agent
-from agno.models.xai import xAI
+from agno.models.anthropic import Claude
 from agno.tools import tool
 import os
 
@@ -54,7 +54,7 @@ def readiness_analyzer(signals: dict) -> bool:
 
 appointment_setter = Agent(
     name="Appointment Setter",
-    model=xAI(id="grok-4"),
+    model=Claude(id="claude-haiku-4-5-20251001"),
     description="An AI agent focused on monitoring lead readiness and scheduling consultations with financial advisors.",
     instructions="""
 Agent Responsibilities:

@@ -1,5 +1,5 @@
 from agno.agent import Agent
-from agno.models.xai import xAI
+from agno.models.anthropic import Claude
 from agno.tools import tool
 import os
 
@@ -53,7 +53,7 @@ def nurturing_sequence_builder(segment: str) -> list:
 
 nurturing_specialist = Agent(
     name="Nurturing Specialist",
-    model=xAI(id="grok-4"),
+    model=Claude(id="claude-haiku-4-5-20251001"),
     description="An AI agent focused on developing and executing automated nurturing campaigns with personalized financial content.",
     instructions="""
 Agent Responsibilities:

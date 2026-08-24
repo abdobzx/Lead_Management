@@ -19,5 +19,5 @@ load_env_file()
 @pytest.fixture(scope="session", autouse=True)
 def setup_environment():
     """Ensure environment variables are loaded for all tests"""
-    assert 'XAI_API_KEY' in os.environ, "XAI_API_KEY must be set in environment or .env file"
+    assert 'ANTHROPIC_API_KEY' in os.environ, "ANTHROPIC_API_KEY must be set in environment or .env file (agents run on Claude, not xAI)"
     yield

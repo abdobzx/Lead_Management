@@ -1,5 +1,5 @@
 from agno.agent import Agent
-from agno.models.xai import xAI
+from agno.models.anthropic import Claude
 from agno.tools import tool
 import os
 import pandas as pd
@@ -49,7 +49,7 @@ def visualization(report: dict) -> str:
 
 reporting_analytics_agent = Agent(
     name="Reporting & Analytics Agent",
-    model=xAI(id="grok-4"),
+    model=Claude(id="claude-haiku-4-5-20251001"),
     description="An AI agent focused on tracking KPIs, analyzing lead funnel performance, and generating reports.",
     instructions="""
 Agent Responsibilities:
