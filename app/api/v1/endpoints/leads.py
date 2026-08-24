@@ -1,20 +1,22 @@
 """
-Leads management endpoints.
+Leads management endpoints - backed by the real leads table (see
+app/models/db_models.py), scoped per-authenticated-user via owner_id.
+Previously this was a plain in-memory dict shared across every caller,
+with no auth at all and data lost on every restart.
 """
 
+from typing import Optional
+
 from fastapi import APIRouter, Depends, HTTPException
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
-from typing import List, Optional
-import uuid
 
 from app.core.database import get_db
+from app.core.deps import get_current_user
 from app.core.pipeline_state import get_pipeline
+from app.models.db_models import LeadRecord, User
 
 router = APIRouter()
-
-
-# In-memory storage for demo (replace with database models later)
-leads_db = {}
 
 
 _SCORE_KEY_PRIORITY = ("financialcapacityscore", "capacityscore", "qualificationscore")
@@ -47,86 +49,95 @@ def _extract_score(stages) -> Optional[int]:
     return None
 
 
+async def _get_owned_lead(lead_id: str, current_user: User, db: AsyncSession) -> LeadRecord:
+    result = await db.execute(
+        select(LeadRecord).where(LeadRecord.id == lead_id, LeadRecord.owner_id == current_user.id)
+    )
+    lead = result.scalar_one_or_none()
+    if lead is None:
+        raise HTTPException(status_code=404, detail="Lead not found")
+    return lead
+
+
 @router.get("/")
 async def get_leads(
     skip: int = 0,
     limit: int = 100,
-    db: AsyncSession = Depends(get_db)
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
 ):
-    """
-    Get all leads with pagination.
-    """
-    leads = list(leads_db.values())[skip:skip + limit]
-    return {"leads": leads, "total": len(leads_db)}
+    """Get the current user's leads, paginated."""
+    result = await db.execute(
+        select(LeadRecord)
+        .where(LeadRecord.owner_id == current_user.id)
+        .offset(skip)
+        .limit(limit)
+    )
+    leads = result.scalars().all()
+
+    count_result = await db.execute(select(LeadRecord).where(LeadRecord.owner_id == current_user.id))
+    total = len(count_result.scalars().all())
+
+    return {"leads": [lead.to_dict() for lead in leads], "total": total}
 
 
 @router.post("/")
 async def create_lead(
     lead_data: dict,
-    db: AsyncSession = Depends(get_db)
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
 ):
-    """
-    Create a new lead.
-    """
-    lead_id = str(uuid.uuid4())
-    lead = {
-        "id": lead_id,
-        "status": "new",
-        "score": 0,
-        **lead_data
-    }
-    leads_db[lead_id] = lead
-    return lead
+    """Create a new lead owned by the current user."""
+    lead = LeadRecord(owner_id=current_user.id, status="new", **lead_data)
+    db.add(lead)
+    await db.commit()
+    await db.refresh(lead)
+    return lead.to_dict()
 
 
 @router.get("/{lead_id}")
 async def get_lead(
     lead_id: str,
-    db: AsyncSession = Depends(get_db)
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
 ):
-    """
-    Get a specific lead by ID.
-    """
-    if lead_id not in leads_db:
-        raise HTTPException(status_code=404, detail="Lead not found")
-    return leads_db[lead_id]
+    lead = await _get_owned_lead(lead_id, current_user, db)
+    return lead.to_dict()
 
 
 @router.put("/{lead_id}")
 async def update_lead(
     lead_id: str,
     lead_data: dict,
-    db: AsyncSession = Depends(get_db)
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
 ):
-    """
-    Update a lead.
-    """
-    if lead_id not in leads_db:
-        raise HTTPException(status_code=404, detail="Lead not found")
-
-    leads_db[lead_id].update(lead_data)
-    return leads_db[lead_id]
+    lead = await _get_owned_lead(lead_id, current_user, db)
+    for key, value in lead_data.items():
+        if hasattr(lead, key):
+            setattr(lead, key, value)
+    await db.commit()
+    await db.refresh(lead)
+    return lead.to_dict()
 
 
 @router.delete("/{lead_id}")
 async def delete_lead(
     lead_id: str,
-    db: AsyncSession = Depends(get_db)
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
 ):
-    """
-    Delete a lead.
-    """
-    if lead_id not in leads_db:
-        raise HTTPException(status_code=404, detail="Lead not found")
-
-    del leads_db[lead_id]
+    lead = await _get_owned_lead(lead_id, current_user, db)
+    await db.delete(lead)
+    await db.commit()
     return {"message": "Lead deleted"}
 
 
 @router.post("/{lead_id}/process")
 async def process_lead(
     lead_id: str,
-    db: AsyncSession = Depends(get_db)
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
 ):
     """
     Process a lead through the real 6-agent pipeline (lead_generator ->
@@ -134,8 +145,7 @@ async def process_lead(
     appointment_setter -> reporting_analytics_agent), each handoff using a
     reason-first, faithful-extraction pass rather than raw passthrough.
     """
-    if lead_id not in leads_db:
-        raise HTTPException(status_code=404, detail="Lead not found")
+    lead = await _get_owned_lead(lead_id, current_user, db)
 
     pipeline = get_pipeline()
     if pipeline is None:
@@ -144,13 +154,13 @@ async def process_lead(
             detail="ANTHROPIC_API_KEY is not configured - the agent pipeline cannot run.",
         )
 
-    lead = leads_db[lead_id]
-    lead["status"] = "processing"
+    lead.status = "processing"
+    await db.commit()
 
-    result = pipeline.process_lead(lead)
+    result = pipeline.process_lead(lead.to_dict())
 
-    lead["status"] = result.final_status
-    lead["agent_notes"] = {
+    lead.status = result.final_status
+    lead.agent_notes = {
         stage.stage: {
             "summary": stage.content.get("summary"),
             "key_values": stage.content.get("key_values"),
@@ -160,7 +170,9 @@ async def process_lead(
     }
     score = _extract_score(result.stages)
     if score is not None:
-        lead["score"] = score
+        lead.score = score
+
+    await db.commit()
 
     return {
         "lead_id": lead_id,
